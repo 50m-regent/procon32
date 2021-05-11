@@ -27,5 +27,5 @@ def shuffle(path, split_range=[2, 17], rot_pat=[0, 1, 2, 3]):
     return width // h_split, np.concatenate([np.concatenate(h) for h in splitted], 1)
 
 if __name__ == '__main__':
-    size, img = shuffle(sys.argv[1], split_range=[3, 99], rot_pat=[0])
+    size, img = shuffle(sys.argv[1], split_range=[3, 17], rot_pat=[0])
     cv2.imwrite(sys.argv[1].split('.')[0] + f'_puzzle_{size}.ppm', img)

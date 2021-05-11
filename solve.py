@@ -110,7 +110,7 @@ class Sex:
             return mom_edge
 
     def add_shared(self, piece_id, coord, neighbor):
-        heapq.heappush(self.candidates, (-999, (coord, piece_id), neighbor))
+        heapq.heappush(self.candidates, (-99, (coord, piece_id), neighbor))
 
     def get_buddy(self, piece_id, direction):
         first = Slave.match(piece_id, direction)
@@ -275,7 +275,18 @@ class Chromosome:
             return self.pieces[index + 1].id
 
     def mutate(self):
-        np.random.shuffle(self.pieces)
+        if rand.random() < 0.5:
+            row1 = rand.randrange(self.rows)
+            row2 = rand.randrange(self.rows)
+            itr1 = row1 * self.cols
+            itr2 = row2 * self.cols
+
+            self.pieces[itr1:itr1 + self.cols], self.pieces[itr2:itr2 + self.cols] = self.pieces[itr2:itr2 + self.cols], self.pieces[itr1:itr1 + self.cols]
+        else:
+            col1 = rand.randrange(self.cols)
+            col2 = rand.randrange(self.cols)
+
+            self.pieces[col1::self.cols], self.pieces[col2::self.cols] = self.pieces[col2::self.cols], self.pieces[col1::self.cols]
 
     def save(self, path):
         cv2.imwrite(path, self.to_image())
@@ -307,6 +318,7 @@ class Civilization:
 
     def print_time(self):
         print(f'Taken: {time() - self.start} seconds')
+        self.start = time()
 
     def run(self, save=False):
         self.start = time()
@@ -317,7 +329,7 @@ class Civilization:
         best_score = float("-inf")
 
         for generation in range(self.generations):
-            self.start = time()
+            
             new_population = []
 
             new_population.extend(self.get_elites())
@@ -339,12 +351,11 @@ class Civilization:
             print(f"Generation: {generation + 1} Best: {best}")
             best.save(f'img/{generation}.ppm')
 
-            self.print_time()
-
+        self.print_time()
         return best
 
 if __name__ == "__main__":
     global ti, tr
     ti = tr = 0
 
-    Civilization(image=cv2.imread(sys.argv[1]), piece_size=int(sys.argv[2]), mutation_prob=0.2, population_size=50, generations=50, elite_size=1).run().save(sys.argv[1].split('.')[0] + '_solution.ppm')
+    Civilization(image=cv2.imread(sys.argv[1]), piece_size=int(sys.argv[2]), mutation_prob=0.2, population_size=100, generations=100, elite_size=1).run().save(sys.argv[1].split('.')[0] + '_solution.ppm')
