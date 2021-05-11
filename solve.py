@@ -236,7 +236,7 @@ class Chromosome:
 
     @property
     def score(self):
-        if self._score is None:
+        if self._score == None:
             score = 1
             for i in range(self.rows):
                 for j in range(self.cols - 1):
@@ -303,7 +303,7 @@ class Civilization:
 
     def flatten_image(self, image, piece_size):
         rows, cols = image.shape[0] // piece_size, image.shape[1] // piece_size
-        pieces = np.reshape([[Piece(img.astype(np.float), i * cols + j) for j, img in enumerate(np.split(h, rows))] for i, h in enumerate(np.split(image, cols, 1))], (-1))
+        pieces = np.reshape([[Piece(img.astype(np.int16), i * cols + j) for j, img in enumerate(np.split(h, rows))] for i, h in enumerate(np.split(image, cols, 1))], (-1))
 
         return pieces, rows, cols
 
@@ -336,15 +336,13 @@ class Civilization:
 
             _save = save
             for mom, dad in self.get_parents():
-                new_population.append(Sex(mom, dad).run(save=_save).child())
+                child = Sex(mom, dad).run(save=_save).child()
+                if rand.random() < self.mutation_prob:
+                    child.mutate()
+                new_population.append(child)
                 _save = False
-
             best = self.get_best()
             best_score = max(best_score, best)
-
-            for i in range(len(new_population)):
-                if rand.random() < self.mutation_prob:
-                    new_population[i].mutate()
 
             self.population = new_population
 
@@ -358,4 +356,4 @@ if __name__ == "__main__":
     global ti, tr
     ti = tr = 0
 
-    Civilization(image=cv2.imread(sys.argv[1]), piece_size=int(sys.argv[2]), mutation_prob=0.2, population_size=100, generations=100, elite_size=1).run().save(sys.argv[1].split('.')[0] + '_solution.ppm')
+    Civilization(image=cv2.imread(sys.argv[1]), piece_size=int(sys.argv[2]), mutation_prob=0.5, population_size=300, generations=30, elite_size=1).run().save(sys.argv[1].split('.')[0] + '_solution.ppm')
