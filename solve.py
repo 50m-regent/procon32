@@ -4,6 +4,7 @@ import numpy as np
 from operator import attrgetter
 import random as rand
 import heapq
+from time import time
 
 class Piece:
     def __init__(self, image, index):
@@ -168,13 +169,21 @@ class Sex:
         for direction, coord in self.get_available(*coord):
             self.add_candidate(piece_id, direction, coord)
 
-    def grow(self, piece_id, coord):
+    def grow(self, piece_id, coord, save=False):
         self.kernel[piece_id] = coord
         self.used.add(coord)
         self.update(piece_id, coord)
 
-    def run(self):
-        self.grow(rand.choice(self.mom.pieces).id, (0, 0))
+        if save:
+            global ti, tr
+            self.child().save(f'img/growth/{ti}-{tr}.ppm')
+            tr += 1
+            if tr > 9:
+                ti += 1
+                tr = 0
+
+    def run(self, save=False):
+        self.grow(rand.choice(self.mom.pieces).id, (0, 0), save)
 
         while len(self.candidates):
             _, (coord, piece_id), neighbor = heapq.heappop(self.candidates)
@@ -186,7 +195,7 @@ class Sex:
                 self.add_candidate(neighbor[0], neighbor[1], coord)
                 continue
 
-            self.grow(piece_id, coord)
+            self.grow(piece_id, coord, save)
 
         return self
 
@@ -195,6 +204,10 @@ class Sex:
 
         for piece, (row, col) in self.kernel.items():
             pieces[(row - self.min_row) * self.mom.cols + (col - self.min_col)] = self.mom.piece_by_id(piece)
+
+        for i in range(len(pieces)):
+            if pieces[i] == None:
+                pieces[i] = Piece(np.zeros((self.mom.pieces[0].image.shape)), -1)
 
         return Chromosome(pieces, self.mom.rows, self.mom.cols)
 
@@ -262,8 +275,7 @@ class Chromosome:
             return self.pieces[index + 1].id
 
     def mutate(self):
-        for piece in self.pieces:
-            piece.rotate(rand.choice([0, 1, 2, 3]))
+        np.random.shuffle(self.pieces)
 
     def save(self, path):
         cv2.imwrite(path, self.to_image())
@@ -280,7 +292,7 @@ class Civilization:
 
     def flatten_image(self, image, piece_size):
         rows, cols = image.shape[0] // piece_size, image.shape[1] // piece_size
-        pieces = np.reshape([[Piece(img.astype(np.float), i * cols + j) for j, img in enumerate(np.split(h, cols))] for i, h in enumerate(np.split(image, rows, 1))], (-1))
+        pieces = np.reshape([[Piece(img.astype(np.float), i * cols + j) for j, img in enumerate(np.split(h, rows))] for i, h in enumerate(np.split(image, cols, 1))], (-1))
 
         return pieces, rows, cols
 
@@ -293,19 +305,27 @@ class Civilization:
     def get_best(self):
         return max(self.population, key=attrgetter("score"))
 
-    def run(self):
+    def print_time(self):
+        print(f'Taken: {time() - self.start} seconds')
+
+    def run(self, save=False):
+        self.start = time()
         Slave.analyze(self.pieces)
+        self.print_time()
 
         best = None
         best_score = float("-inf")
 
         for generation in range(self.generations):
+            self.start = time()
             new_population = []
 
             new_population.extend(self.get_elites())
 
+            _save = save
             for mom, dad in self.get_parents():
-                new_population.append(Sex(mom, dad).run().child())
+                new_population.append(Sex(mom, dad).run(save=_save).child())
+                _save = False
 
             best = self.get_best()
             best_score = max(best_score, best)
@@ -319,7 +339,12 @@ class Civilization:
             print(f"Generation: {generation + 1} Best: {best}")
             best.save(f'img/{generation}.ppm')
 
+            self.print_time()
+
         return best
 
 if __name__ == "__main__":
-    Civilization(image=cv2.imread(sys.argv[1]), piece_size=int(sys.argv[2]), mutation_prob=0, population_size=50, generations=20, elite_size=2).run().save(sys.argv[1].split('.')[0] + '_solution.ppm')
+    global ti, tr
+    ti = tr = 0
+
+    Civilization(image=cv2.imread(sys.argv[1]), piece_size=int(sys.argv[2]), mutation_prob=0.2, population_size=50, generations=50, elite_size=1).run().save(sys.argv[1].split('.')[0] + '_solution.ppm')
